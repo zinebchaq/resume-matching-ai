@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recruiter AI Dashboard</title>
+    <!-- Tailwind CSS (Le seul truc externe, tres fiable) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&display=swap');
+        body { font-family: 'Outfit', sans-serif; background-color: #0f172a; color: #f8fafc; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 15px; }
+        .loader { border: 3px solid rgba(255,255,255,0.1); border-top: 3px solid #6366f1; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="p-4">
+    <!-- Message de secours si le JS plante -->
+    <div id="error-display" class="hidden fixed top-0 left-0 w-full bg-red-600 text-white p-4 z-50 text-center font-bold">
+        Une erreur est survenue lors du chargement. Vérifiez votre connexion internet.
+    </div>
+
+    <div id="app-container" class="max-w-4xl mx-auto">
+        <header class="text-center my-8">
+            <h1 class="text-3xl font-bold">Recruiter <span class="text-indigo-500">AI Dashboard</span></h1>
+            <p class="text-slate-400">Classification & Matching de CV</p>
+        </header>
+
+        <div class="flex justify-center gap-4 mb-8">
+            <button onclick="switchTab('classify')" id="btn-classify" class="px-6 py-2 border-b-2 border-indigo-500 text-white font-bold">Classification</button>
+            <button onclick="switchTab('match')" id="btn-match" class="px-6 py-2 border-b-2 border-transparent text-slate-400">Job Matching</button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- Formulaire -->
+            <div class="glass p-6">
+                <h3 class="font-bold mb-4">📤 Importation</h3>
+                <div class="mb-4">
+                    <label class="block text-sm mb-1 text-slate-400">CV (PDF uniquement)</label>
+                    <input type="file" id="cv-file" class="w-full bg-slate-800 p-2 rounded text-sm text-white">
+                </div>
+                <div id="jd-container" class="hidden mb-4">
+                    <label class="block text-sm mb-1 text-slate-400">Offre d'emploi</label>
+                    <textarea id="jd-text" class="w-full bg-slate-800 p-2 rounded text-sm h-32 text-white" placeholder="Collez l'offre ici..."></textarea>
+                </div>
+                <button onclick="runAnalysis()" id="btn-run" class="w-full bg-indigo-600 hover:bg-indigo-700 py-3 rounded-lg font-bold flex justify-center items-center gap-2">
+                    LANCER L'ANALYSE
+                </button>
+            </div>
+
+            <!-- Resultats -->
+            <div id="results-display" class="glass p-6 flex flex-col justify-center min-h-[200px]">
+                <div id="empty-state" class="text-center text-slate-500">
+                    <p>En attente de fichiers...</p>
+                </div>
+                <div id="loading-state" class="hidden text-center">
+                    <div class="loader mx-auto mb-2"></div>
+                    <p>Analyse en cours...</p>
+                </div>
+                <div id="content-state" class="hidden">
+                    <!-- Rempli par le JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Detection d'erreurs globale
+        window.onerror = function(msg, url, line) {
+            document.getElementById('error-display').classList.remove('hidden');
+            document.getElementById('error-display').innerText = "Erreur JS: " + msg + " (Ligne " + line + ")";
+        };
+
+        let currentTab = 'classify';
+
+        function switchTab(tab) {
+            currentTab = tab;
+            document.getElementById('jd-container').classList.toggle('hidden', tab === 'classify');
+            document.getElementById('btn-classify').className = tab === 'classify' ? "px-6 py-2 border-b-2 border-indigo-500 text-white font-bold" : "px-6 py-2 border-b-2 border-transparent text-slate-400";
+            document.getElementById('btn-match').className = tab === 'match' ? "px-6 py-2 border-b-2 border-indigo-500 text-white font-bold" : "px-6 py-2 border-b-2 border-transparent text-slate-400";
+        }
+
+        async function runAnalysis() {
+            const fileInput = document.getElementById('cv-file');
+            if (!fileInput.files[0]) return alert("Veuillez choisir un fichier PDF");
+
+            const btn = document.getElementById('btn-run');
+            const empty = document.getElementById('empty-state');
+            const loading = document.getElementById('loading-state');
+            const content = document.getElementById('content-state');
+
+            btn.disabled = true;
+            empty.classList.add('hidden');
+            content.classList.add('hidden');
+            loading.classList.remove('hidden');
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                let url = currentTab === 'classify' ? "http://localhost:8000/classify" : "http://localhost:8000/match";
+                if (currentTab === 'match') {
+                    formData.append('jd_text', document.getElementById('jd-text').value);
+                }
+
+                const response = await fetch(url, { method: 'POST', body: formData });
+                const data = await response.json();
+
+                renderResults(data);
+            } catch (err) {
+                alert("Erreur: Le serveur Python ne répond pas. Vérifiez la fenêtre noire.");
+                empty.classList.remove('hidden');
+            } finally {
+                loading.classList.add('hidden');
+                btn.disabled = false;
+            }
+        }
+
+        function renderResults(data) {
+            const content = document.getElementById('content-state');
+            content.classList.remove('hidden');
+            
+            if (currentTab === 'classify') {
+                content.innerHTML = `
+                    <p class="text-xs text-slate-400 uppercase">Domaine détecté</p>
+                    <h2 class="text-2xl font-bold text-indigo-400 mb-4">${data.prediction.category}</h2>
+                    <p class="text-sm mb-4">Confiance: <b>${data.prediction.confidence}%</b></p>
+                    <p class="text-sm font-bold mb-2">Compétences:</p>
+                    <div class="flex flex-wrap">${data.skills.map(s => `<span class="bg-indigo-900/40 border border-indigo-700/50 rounded-full px-3 py-1 text-xs mr-2 mb-2">${s}</span>`).join('')}</div>
+                `;
+            } else {
+                content.innerHTML = `
+                    <p class="text-xs text-slate-400 uppercase text-center">Score de Match</p>
+                    <h2 class="text-5xl font-bold text-indigo-400 text-center my-4">${data.score}%</h2>
+                    <div class="grid grid-cols-2 gap-2 mt-4">
+                        <div class="bg-slate-800 p-3 rounded">
+                            <p class="text-[10px] text-slate-500">Sémantique</p>
+                            <p class="font-bold">${data.semantic_similarity}%</p>
+                        </div>
+                        <div class="bg-slate-800 p-3 rounded">
+                            <p class="text-[10px] text-slate-500">Skills</p>
+                            <p class="font-bold">${data.common_skills.length}</p>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

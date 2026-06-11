@@ -1,0 +1,12 @@
+.venv/
+venv/
+node_modules/
+.env
+
+# Ignorer TOUS les fichiers de modèles lourds et checkpoints
+**/models-20260423T133445Z-3-001/
+**/distilbert_checkpoints/
+*.pt
+*.bin
+*.ot
+*.safetensors
