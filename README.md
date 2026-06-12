@@ -28,14 +28,20 @@ git clone https://github.com/maryem2104/resume-matching-ai/tree/main/projet_fina
 cd projet_final
 ```
 
-### 2. Installer les dépendances Python
+### 2. Création du venv
+python -m venv venv
+
+### 3. Activation du venv
+.\venv\Scripts\Activate.ps1
+
+### 4. Installation de toutes les dépendances dans le venv
 
 ```bash
 pip install fastapi uvicorn pdfplumber sentence-transformers
 pip install deep-translator langdetect scikit-learn numpy torch
 ```
 
-### 3. Lancer le backend (FastAPI)
+### 5. Lancer le backend (FastAPI)
 
 ```bash
 cd dosssier/web_app
@@ -44,7 +50,7 @@ python api.py
 
 > Le backend tourne sur **http://localhost:8000**
 
-### 4. Installer les dépendances React
+### 6. Installer les dépendances React
 
 ```bash
 cd dosssier/web_app/client
